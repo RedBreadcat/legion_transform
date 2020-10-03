@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::{
-    components::*,
+    components_3d::*,
     ecs::{
         systems::{CommandBuffer, ParallelRunnable},
         world::SubWorld,
@@ -9,12 +9,12 @@ use crate::{
 };
 
 pub fn build() -> impl ParallelRunnable {
-    SystemBuilder::<()>::new("LocalToWorldPropagateSystem")
+    SystemBuilder::<()>::new("LocalToWorldPropagateSystem3D")
         // Entities with a `Children` and `LocalToWorld` but NOT a `Parent` (ie those that are
         // roots of a hierarchy).
-        .with_query(<(Read<Children>, Read<LocalToWorld>)>::query().filter(!component::<Parent>()))
+        .with_query(<(Read<Children>, Read<LocalToWorld3>)>::query().filter(!component::<Parent>()))
         .read_component::<Children>()
-        .read_component::<LocalToParent>()
+        .read_component::<LocalToParent3>()
         .build(move |commands, world, _resource, query| {
             for (children, local_to_world) in query.iter(world) {
                 for child in children.0.iter() {
@@ -25,7 +25,7 @@ pub fn build() -> impl ParallelRunnable {
 }
 
 fn propagate_recursive(
-    parent_local_to_world: LocalToWorld,
+    parent_local_to_world: LocalToWorld3,
     world: &SubWorld,
     entity: Entity,
     commands: &mut CommandBuffer,
@@ -34,7 +34,8 @@ fn propagate_recursive(
     let local_to_parent = {
         if let Some(local_to_parent) = world
             .entry_ref(entity)
-            .and_then(|entry| entry.into_component::<LocalToParent>().ok())
+            .ok()
+            .and_then(|entry| entry.into_component::<LocalToParent3>().ok())
         {
             *local_to_parent
         } else {
@@ -46,11 +47,11 @@ fn propagate_recursive(
         }
     };
 
-    let new_local_to_world = LocalToWorld(parent_local_to_world.0 * local_to_parent.0);
+    let new_local_to_world = LocalToWorld3(parent_local_to_world.0 * local_to_parent.0);
     commands.add_component(entity, new_local_to_world);
 
     // Collect children
-    let children = if let Some(entry) = world.entry_ref(entity) {
+    let children = if let Ok(entry) = world.entry_ref(entity) {
         entry
             .get_component::<Children>()
             .map(|e| e.0.iter().cloned().collect::<Vec<_>>())
@@ -68,8 +69,8 @@ fn propagate_recursive(
 mod test {
     use super::*;
     use crate::{
-        local_to_parent_system, local_to_world_propagate_system, local_to_world_system,
-        missing_previous_parent_system, parent_update_system,
+        local_to_parent_system_3d, local_to_world_propagate_system_3d, local_to_world_system_3d,
+        missing_previous_parent_system_3d, parent_update_system_3d,
     };
 
     #[test]
@@ -78,32 +79,33 @@ mod test {
 
         let mut resources = Resources::default();
         let mut world = World::default();
+        let prefab_world = World::default();
 
         let mut schedule = Schedule::builder()
-            .add_system(missing_previous_parent_system::build())
+            .add_system(missing_previous_parent_system_3d::build())
             .flush()
-            .add_system(parent_update_system::build())
+            .add_system(parent_update_system_3d::build())
             .flush()
-            .add_system(local_to_parent_system::build())
+            .add_system(local_to_parent_system_3d::build())
             .flush()
-            .add_system(local_to_world_system::build())
+            .add_system(local_to_world_system_3d::build())
             .flush()
-            .add_system(local_to_world_propagate_system::build())
+            .add_system(local_to_world_propagate_system_3d::build())
             .build();
 
         // Root entity
-        let parent = world.push((Translation::new(1.0, 0.0, 0.0), LocalToWorld::identity()));
+        let parent = world.push((Translation3::new(1.0, 0.0, 0.0), LocalToWorld3::identity()));
 
         let children = world.extend(vec![
             (
-                Translation::new(0.0, 2.0, 0.0),
-                LocalToParent::identity(),
-                LocalToWorld::identity(),
+                Translation3::new(0.0, 2.0, 0.0),
+                LocalToParent3::identity(),
+                LocalToWorld3::identity(),
             ),
             (
-                Translation::new(0.0, 0.0, 3.0),
-                LocalToParent::identity(),
-                LocalToWorld::identity(),
+                Translation3::new(0.0, 0.0, 3.0),
+                LocalToParent3::identity(),
+                LocalToWorld3::identity(),
             ),
         ]);
         let (e1, e2) = (children[0], children[1]);
@@ -113,28 +115,28 @@ mod test {
         world.entry(e2).unwrap().add_component(Parent(parent));
 
         // Run systems
-        schedule.execute(&mut world, &mut resources);
+        schedule.execute(&mut world, &prefab_world, &mut resources);
 
         assert_eq!(
             world
                 .entry(e1)
                 .unwrap()
-                .get_component::<LocalToWorld>()
+                .get_component::<LocalToWorld3>()
                 .unwrap()
                 .0,
-            Translation::new(1.0, 0.0, 0.0).to_homogeneous()
-                * Translation::new(0.0, 2.0, 0.0).to_homogeneous()
+            Translation3::new(1.0, 0.0, 0.0).to_homogeneous()
+                * Translation3::new(0.0, 2.0, 0.0).to_homogeneous()
         );
 
         assert_eq!(
             world
                 .entry(e2)
                 .unwrap()
-                .get_component::<LocalToWorld>()
+                .get_component::<LocalToWorld3>()
                 .unwrap()
                 .0,
-            Translation::new(1.0, 0.0, 0.0).to_homogeneous()
-                * Translation::new(0.0, 0.0, 3.0).to_homogeneous()
+            Translation3::new(1.0, 0.0, 0.0).to_homogeneous()
+                * Translation3::new(0.0, 0.0, 3.0).to_homogeneous()
         );
     }
 }

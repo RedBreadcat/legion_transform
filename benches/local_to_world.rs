@@ -3,7 +3,7 @@
 extern crate test;
 
 use legion::*;
-use legion_transform::{local_to_world_system, prelude::*};
+use legion_transform::prelude_3d::*;
 use test::Bencher;
 
 #[bench]
@@ -12,13 +12,14 @@ fn local_to_world_update_without_change(b: &mut Bencher) {
 
     let mut resources = Resources::default();
     let mut world = World::default();
+    let prefab_world = World::default();
     let mut schedule = Schedule::builder()
-        .add_system(local_to_world_system::build())
+        .add_system(local_to_world_system_3d::build())
         .build();
 
-    let ltw = LocalToWorld::identity();
-    let t = Translation::new(1.0, 2.0, 3.0);
-    let r = Rotation::from_euler_angles(1.0, 2.0, 3.0);
+    let ltw = LocalToWorld3::identity();
+    let t = Translation3::new(1.0, 2.0, 3.0);
+    let r = Rotation3::from_euler_angles(1.0, 2.0, 3.0);
     let s = Scale(2.0);
     let nus = NonUniformScale::new(1.0, 2.0, 3.0);
 
@@ -38,10 +39,10 @@ fn local_to_world_update_without_change(b: &mut Bencher) {
 
     // Run the system once outside the test (which should compute everything and it shouldn't be
     // touched again).
-    schedule.execute(&mut world, &mut resources);
+    schedule.execute(&mut world, &prefab_world, &mut resources);
 
     // Then time the already-computed updates.
     b.iter(|| {
-        schedule.execute(&mut world, &mut resources);
+        schedule.execute(&mut world, &prefab_world, &mut resources);
     });
 }

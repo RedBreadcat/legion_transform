@@ -1,25 +1,25 @@
 #![allow(dead_code)]
 use crate::{
-    components::*,
+    components_3d::*,
     ecs::{systems::ParallelRunnable, *},
 };
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
 pub fn build() -> impl ParallelRunnable {
-    SystemBuilder::<()>::new("ParentUpdateSystem")
+    SystemBuilder::<()>::new("ParentUpdateSystem3D")
         // Entities with a removed `Parent`
         .with_query(<(Entity, Read<PreviousParent>)>::query().filter(!component::<Parent>()))
         // Entities with a changed `Parent`
         .with_query(
             <(Entity, Read<Parent>, Write<PreviousParent>)>::query().filter(
-                component::<LocalToParent>()
-                    & component::<LocalToWorld>()
+                component::<LocalToParent3>()
+                    & component::<LocalToWorld3>()
                     & maybe_changed::<Parent>(),
             ),
         )
         // Deleted Parents (ie Entities with `Children` and without a `LocalToWorld`).
-        .with_query(<(Entity, Read<Children>)>::query().filter(!component::<LocalToWorld>()))
+        .with_query(<(Entity, Read<Children>)>::query().filter(!component::<LocalToWorld3>()))
         .write_component::<Children>()
         .build(move |commands, world, _resource, queries| {
             // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
@@ -30,6 +30,7 @@ pub fn build() -> impl ParallelRunnable {
                 if let Some(previous_parent_entity) = previous_parent.0 {
                     if let Some(previous_parent_children) = left
                         .entry_mut(previous_parent_entity)
+                        .ok()
                         .and_then(|entry| entry.into_component_mut::<Children>().ok())
                     {
                         log::trace!(" > Removing {:?} from it's prev parent's children", entity);
@@ -57,6 +58,7 @@ pub fn build() -> impl ParallelRunnable {
                     // Remove from `PreviousParent.Children`.
                     if let Some(previous_parent_children) = left
                         .entry_mut(previous_parent_entity)
+                        .ok()
                         .and_then(|entry| entry.into_component_mut::<Children>().ok())
                     {
                         log::trace!(" > Removing {:?} from prev parent's children", entity);
@@ -72,6 +74,7 @@ pub fn build() -> impl ParallelRunnable {
                 log::trace!("Adding {:?} to it's new parent {:?}", entity, parent.0);
                 if let Some(new_parent_children) = left
                     .entry_mut(parent.0)
+                    .ok()
                     .and_then(|entry| entry.into_component_mut::<Children>().ok())
                 {
                     // This is the parent
@@ -101,7 +104,7 @@ pub fn build() -> impl ParallelRunnable {
                     for child_entity in children.0.iter() {
                         commands.remove_component::<Parent>(*child_entity);
                         commands.remove_component::<PreviousParent>(*child_entity);
-                        commands.remove_component::<LocalToParent>(*child_entity);
+                        commands.remove_component::<LocalToParent3>(*child_entity);
                     }
                     commands.remove_component::<Children>(*entity);
                 } else {
@@ -126,7 +129,7 @@ pub fn build() -> impl ParallelRunnable {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::missing_previous_parent_system;
+    use crate::missing_previous_parent_system_3d;
 
     #[test]
     fn correct_children() {
@@ -134,25 +137,26 @@ mod test {
 
         let mut resources = Resources::default();
         let mut world = World::default();
+        let prefab_world = World::default();
 
         let mut schedule = Schedule::builder()
-            .add_system(missing_previous_parent_system::build())
+            .add_system(missing_previous_parent_system_3d::build())
             .flush()
             .add_system(build())
             .build();
 
         // Add parent entities
-        let parent = world.push((Translation::identity(), LocalToWorld::identity()));
+        let parent = world.push((Translation3::identity(), LocalToWorld3::identity()));
         let children = world.extend(vec![
             (
-                Translation::identity(),
-                LocalToParent::identity(),
-                LocalToWorld::identity(),
+                Translation3::identity(),
+                LocalToParent3::identity(),
+                LocalToWorld3::identity(),
             ),
             (
-                Translation::identity(),
-                LocalToParent::identity(),
-                LocalToWorld::identity(),
+                Translation3::identity(),
+                LocalToParent3::identity(),
+                LocalToWorld3::identity(),
             ),
         ]);
         let (e1, e2) = (children[0], children[1]);
@@ -161,7 +165,7 @@ mod test {
         world.entry(e1).unwrap().add_component(Parent(parent));
         world.entry(e2).unwrap().add_component(Parent(parent));
 
-        schedule.execute(&mut world, &mut resources);
+        schedule.execute(&mut world, &prefab_world, &mut resources);
 
         assert_eq!(
             world
@@ -185,7 +189,7 @@ mod test {
             .0 = e2;
 
         // Run the systems
-        schedule.execute(&mut world, &mut resources);
+        schedule.execute(&mut world, &prefab_world, &mut resources);
 
         assert_eq!(
             world
@@ -216,7 +220,7 @@ mod test {
         world.remove(e1);
 
         // Run the systems
-        schedule.execute(&mut world, &mut resources);
+        schedule.execute(&mut world, &prefab_world, &mut resources);
 
         assert_eq!(
             world

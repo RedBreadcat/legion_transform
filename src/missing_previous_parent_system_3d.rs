@@ -1,14 +1,14 @@
 use crate::{
-    components::*,
+    components_3d::*,
     ecs::{systems::ParallelRunnable, *},
 };
 
 pub fn build() -> impl ParallelRunnable {
-    SystemBuilder::<()>::new("MissingPreviousParentSystem")
+    SystemBuilder::<()>::new("MissingPreviousParentSystem3D")
         // Entities with missing `PreviousParent`
         .with_query(<(Entity, Read<Parent>)>::query().filter(
-            component::<LocalToParent>()
-                & component::<LocalToWorld>()
+            component::<LocalToParent3>()
+                & component::<LocalToWorld3>()
                 & !component::<PreviousParent>(),
         ))
         .build(move |commands, world, _resource, query| {
@@ -30,23 +30,24 @@ mod test {
 
         let mut resources = Resources::default();
         let mut world = World::default();
+        let prefab_world = World::default();
 
         let mut schedule = Schedule::builder().add_system(build()).build();
 
         let e1 = world.push((
-            Translation::identity(),
-            LocalToParent::identity(),
-            LocalToWorld::identity(),
+            Translation3::identity(),
+            LocalToParent3::identity(),
+            LocalToWorld3::identity(),
         ));
 
         let e2 = world.push((
-            Translation::identity(),
-            LocalToParent::identity(),
-            LocalToWorld::identity(),
+            Translation3::identity(),
+            LocalToParent3::identity(),
+            LocalToWorld3::identity(),
             Parent(e1),
         ));
 
-        schedule.execute(&mut world, &mut resources);
+        schedule.execute(&mut world, &prefab_world, &mut resources);
 
         assert_eq!(
             world

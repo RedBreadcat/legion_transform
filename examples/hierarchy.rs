@@ -2,7 +2,7 @@ extern crate legion;
 extern crate legion_transform;
 
 use legion::*;
-use legion_transform::prelude::*;
+use legion_transform::prelude_3d::*;
 
 #[allow(unused)]
 fn tldr_sample() {
@@ -11,27 +11,27 @@ fn tldr_sample() {
     let mut resources = Resources::default();
 
     // Create a system bundle (vec of systems) for LegionTransform
-    let transform_system_bundle = transform_system_bundle::build();
+    let transform_system_bundle = transform_system_bundle::build_3d();
 
     let parent_entity = world.push((
         // Always needed for an Entity that has any space transform
-        LocalToWorld::identity(),
+        LocalToWorld3::identity(),
         // The only mutable space transform a parent has is a translation.
-        Translation::new(100.0, 0.0, 0.0),
+        Translation3::new(100.0, 0.0, 0.0),
     ));
 
     world.extend(vec![
         (
             // Again, always need a `LocalToWorld` component for the Entity to have a custom
             // space transform.
-            LocalToWorld::identity(),
+            LocalToWorld3::identity(),
             // Here we define a Translation, Rotation and uniform Scale.
-            Translation::new(1.0, 2.0, 3.0),
-            Rotation::from_euler_angles(3.14, 0.0, 0.0),
+            Translation3::new(1.0, 2.0, 3.0),
+            Rotation3::from_euler_angles(std::f32::consts::PI, 0.0, 0.0),
             Scale(2.0),
             // Add a Parent and LocalToParent component to attach a child to a parent.
             Parent(parent_entity),
-            LocalToParent::identity(),
+            LocalToParent3::identity(),
         );
         4
     ]);
@@ -41,23 +41,27 @@ fn main() {
     // Create a normal Legion World
     let mut resources = Resources::default();
     let mut world = World::default();
+    let prefab_world = World::default();
 
     // Create a system bundle (vec of systems) for LegionTransform
-    let mut transform_system_bundle = transform_system_bundle::build();
+    let mut transform_system_bundle = transform_system_bundle::build_3d();
 
     // See `./types_of_transforms.rs` for an explanation of space-transform types.
-    let parent_entity = world.push((LocalToWorld::identity(), Translation::new(100.0, 0.0, 0.0)));
+    let parent_entity = world.push((
+        LocalToWorld3::identity(),
+        Translation3::new(100.0, 0.0, 0.0),
+    ));
 
     let four_children: Vec<_> = world
         .extend(vec![
             (
-                LocalToWorld::identity(),
-                Translation::new(1.0, 2.0, 3.0),
-                Rotation::from_euler_angles(3.14, 0.0, 0.0),
+                LocalToWorld3::identity(),
+                Translation3::new(1.0, 2.0, 3.0),
+                Rotation3::from_euler_angles(std::f32::consts::PI, 0.0, 0.0),
                 Scale(2.0),
                 // Add a Parent and LocalToParent component to attach a child to a parent.
                 Parent(parent_entity),
-                LocalToParent::identity(),
+                LocalToParent3::identity(),
             );
             4
         ])
@@ -75,7 +79,7 @@ fn main() {
         system
             .command_buffer_mut(world.id())
             .unwrap()
-            .flush(&mut world);
+            .flush(&mut world, &prefab_world);
     }
 
     // At this point all parents with children have a correct `Children` component.
@@ -101,7 +105,7 @@ fn main() {
             world
                 .entry_ref(*child)
                 .unwrap()
-                .get_component::<LocalToParent>()
+                .get_component::<LocalToParent3>()
                 .unwrap()
         );
         println!(
@@ -109,7 +113,7 @@ fn main() {
             world
                 .entry_ref(*child)
                 .unwrap()
-                .get_component::<LocalToWorld>()
+                .get_component::<LocalToWorld3>()
                 .unwrap()
         );
     }
@@ -127,7 +131,7 @@ fn main() {
         system
             .command_buffer_mut(world.id())
             .unwrap()
-            .flush(&mut world);
+            .flush(&mut world, &prefab_world);
     }
 
     println!("After the second child was re-parented as a grandchild of the first child...");
@@ -163,7 +167,7 @@ fn main() {
         world
             .entry_ref(four_children[1])
             .unwrap()
-            .get_component::<LocalToWorld>()
+            .get_component::<LocalToWorld3>()
             .unwrap()
     );
 }

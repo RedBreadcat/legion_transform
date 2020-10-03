@@ -3,8 +3,8 @@ use shrinkwraprs::Shrinkwrap;
 
 #[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy)]
 #[shrinkwrap(mutable)]
-pub struct Rotation(pub UnitQuaternion<f32>);
-impl Rotation {
+pub struct Rotation3(pub UnitQuaternion<f32>);
+impl Rotation3 {
     #[inline(always)]
     pub fn identity() -> Self {
         Self(UnitQuaternion::identity())
@@ -16,13 +16,13 @@ impl Rotation {
     }
 }
 
-impl Default for Rotation {
+impl Default for Rotation3 {
     fn default() -> Self {
         Self::identity()
     }
 }
 
-impl From<UnitQuaternion<f32>> for Rotation {
+impl From<UnitQuaternion<f32>> for Rotation3 {
     fn from(rotation: UnitQuaternion<f32>) -> Self {
         Self(rotation)
     }
