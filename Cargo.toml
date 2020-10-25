@@ -14,6 +14,7 @@ rayon = "1.2"
 serde = { version = "1", features = ["derive"] }
 smallvec = "0.6"
 shrinkwraprs = "0.2"
+hashbrown = "0.9"
 
 [dev-dependencies]
 env_logger = "0.7"

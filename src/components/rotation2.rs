@@ -1,13 +1,13 @@
 use crate::math::Matrix3;
-use shrinkwraprs::Shrinkwrap;
 
 // cos(R) -sin(R) x
 // sin(R) cos(R)  y
 // 0      0       1
 
-#[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy)]
-#[shrinkwrap(mutable)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Rotation2(pub f32);
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct LocalRotation2(pub Rotation2);
 impl Rotation2 {
     #[inline(always)]
     pub fn identity() -> Self {
@@ -67,6 +67,20 @@ impl Rotation2 {
             || self.0 == Rotation2::bottom().0
             || self.0 == Rotation2::left().0
     }
+
+    pub fn transform_to_copy(&self, transformation: &Matrix3<f32>) -> Rotation2 {
+        let m11 = unsafe { transformation.get_unchecked((0, 0)) };
+        let m21 = unsafe { transformation.get_unchecked((1, 0)) };
+        let rot = m11.acos().copysign(*m21);
+        Rotation2(self.0 + rot)
+    }
+}
+
+impl LocalRotation2 {
+    #[inline(always)]
+    pub fn identity() -> Self {
+        Self { 0: Rotation2::identity() }
+    }
 }
 
 impl Default for Rotation2 {
@@ -78,5 +92,11 @@ impl Default for Rotation2 {
 impl From<f32> for Rotation2 {
     fn from(rotation: f32) -> Self {
         Self(rotation)
+    }
+}
+
+impl From<f32> for LocalRotation2 {
+    fn from(rotation: f32) -> Self {
+        Self(Rotation2(rotation))
     }
 }

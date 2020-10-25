@@ -3,10 +3,33 @@ use crate::{
     components_2d::*,
     ecs::{systems::ParallelRunnable, *},
 };
+use legion::world::SubWorld;
 use smallvec::SmallVec;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
-pub fn build() -> impl ParallelRunnable {
+//TODO: uses localtoworld in a way I don't like
+
+//TODO: detect that "Parent" is present.
+// If so, get the Children component of the entity under Parent, and set to this entity.
+// Figure out a way to make it not require updating every frame
+
+#[system(for_each)]
+#[write_component(Children)]
+pub fn parent_update(
+    world: &mut SubWorld,
+    entity: &Entity,
+    parent: &Parent,
+) {
+    let mut entry = world.entry_mut(parent.0).unwrap();
+    let children = entry.get_component_mut::<Children>().unwrap();
+
+    // Don't do this. Instead, be clever and ensure this system just runs once.
+    // Perhaps "Parent" needs an "up to date" bool. Can also use filter for maybe changed.
+    children.0.clear();
+    children.0.push(*entity);
+}
+
+/*pub fn build() -> impl ParallelRunnable {
     SystemBuilder::<()>::new("ParentUpdateSystem2D")
         // Entities with a removed `Parent`
         .with_query(<(Entity, Read<PreviousParent>)>::query().filter(!component::<Parent>()))
@@ -71,7 +94,7 @@ pub fn build() -> impl ParallelRunnable {
 
                 // Add to the parent's `Children` (either the real component, or
                 // `children_additions`).
-                log::trace!("Adding {:?} to it's new parent {:?}", entity, parent.0);
+                log::trace!("Adding {:?} to its new parent {:?}", entity, parent.0);
                 if let Some(new_parent_children) = left
                     .entry_mut(parent.0)
                     .ok()
@@ -124,7 +147,7 @@ pub fn build() -> impl ParallelRunnable {
                 commands.add_component(*k, Children::with(v));
             });
         })
-}
+}*/
 
 #[cfg(test)]
 mod test {
@@ -146,15 +169,18 @@ mod test {
             .build();
 
         // Add parent entities
-        let parent = world.push((Translation2::identity(), LocalToWorld2::identity()));
+        let parent = world.push((
+            LocalTranslation2(Translation2::identity()),
+            LocalToWorld2::identity(),
+        ));
         let children = world.extend(vec![
             (
-                Translation2::identity(),
+                LocalTranslation2(Translation2::identity()),
                 LocalToParent2::identity(),
                 LocalToWorld2::identity(),
             ),
             (
-                Translation2::identity(),
+                LocalTranslation2(Translation2::identity()),
                 LocalToParent2::identity(),
                 LocalToWorld2::identity(),
             ),

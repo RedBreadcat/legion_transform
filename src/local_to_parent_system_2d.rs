@@ -4,45 +4,29 @@ use crate::{
     ecs::{systems::ParallelRunnable, *},
 };
 
+// TODO: this doesn't really do anything
+
 pub fn build() -> impl ParallelRunnable {
     SystemBuilder::<()>::new("LocalToParentUpdateSystem2D")
-        // Translation
-        .with_query(
-            <(Write<LocalToParent2>, Read<Translation2>)>::query()
-                .filter(!component::<Rotation2>() & (maybe_changed::<Translation2>())),
-        )
-        // Rotation
-        .with_query(
-            <(Write<LocalToParent2>, Read<Rotation2>)>::query()
-                .filter(!component::<Translation2>() & (maybe_changed::<Rotation2>())),
-        )
         // Translation + Rotation
         .with_query(
-            <(Write<LocalToParent2>, Read<Translation2>, Read<Rotation2>)>::query()
-                .filter(maybe_changed::<Translation2>() | maybe_changed::<Rotation2>()),
+            <(
+                Write<LocalToParent2>,
+                Read<LocalTranslation2>,
+                Read<LocalRotation2>,
+            )>::query()
+            .filter(maybe_changed::<LocalTranslation2>() | maybe_changed::<LocalRotation2>()),
         )
         .build(move |_commands, world, _, queries| {
-            let (a, b, c) = queries;
+            let a = queries;
             rayon::scope(|s| {
                 s.spawn(|_| unsafe {
-                    // Translation
-                    a.for_each_unchecked(world, |(ltw, translation)| {
-                        *ltw = LocalToParent2(translation.to_homogeneous());
-                    });
-                });
-                s.spawn(|_| unsafe {
-                    // Rotation
-                    b.for_each_unchecked(world, |(ltw, rotation)| {
-                        *ltw = LocalToParent2(rotation.to_homogeneous());
-                    });
-                });
-                s.spawn(|_| unsafe {
-                    // Translation + Rotation
-                    c.for_each_unchecked(world, |(ltw, translation, rotation)| {
-                        *ltw = LocalToParent2(
+                    a.for_each_unchecked(world, |(ltp, translation, rotation)| {
+                        *ltp = LocalToParent2(
                             rotation
+                                .0
                                 .to_homogeneous()
-                                .append_translation(&translation),
+                                .append_translation(&(translation.0).0),
                         );
                     });
                 });
@@ -64,8 +48,8 @@ mod test {
         let mut schedule = Schedule::builder().add_system(build()).build();
 
         let ltw = LocalToParent2::identity();
-        let t = Translation2::new(1.0, 2.0);
-        let r = Rotation2::identity();
+        let t = LocalTranslation2(Translation2::new(1.0, 2.0));
+        let r = LocalRotation2::from(0.0);
 
         // Add every combination of transform types.
         let translation = world.push((ltw, t));
@@ -83,7 +67,7 @@ mod test {
                 .get_component::<LocalToParent2>()
                 .unwrap()
                 .0,
-            t.to_homogeneous()
+            t.0.to_homogeneous()
         );
         assert_eq!(
             world
@@ -92,7 +76,7 @@ mod test {
                 .get_component::<LocalToParent2>()
                 .unwrap()
                 .0,
-            r.to_homogeneous()
+            r.0.to_homogeneous()
         );
         assert_eq!(
             world
@@ -101,7 +85,7 @@ mod test {
                 .get_component::<LocalToParent2>()
                 .unwrap()
                 .0,
-            r.to_homogeneous().append_translation(&t),
+            r.0.to_homogeneous().append_translation(&(t.0).0),
         );
     }
 }

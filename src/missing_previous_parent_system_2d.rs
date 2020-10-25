@@ -1,4 +1,4 @@
-use crate::{
+/*use crate::{
     components_2d::*,
     ecs::{systems::ParallelRunnable, *},
 };
@@ -35,13 +35,13 @@ mod test {
         let mut schedule = Schedule::builder().add_system(build()).build();
 
         let e1 = world.push((
-            Translation2::identity(),
+            LocalTranslation2(Translation2::identity()),
             LocalToParent2::identity(),
             LocalToWorld2::identity(),
         ));
 
         let e2 = world.push((
-            Translation2::identity(),
+            LocalTranslation2(Translation2::identity()),
             LocalToParent2::identity(),
             LocalToWorld2::identity(),
             Parent(e1),
@@ -68,3 +68,4 @@ mod test {
         );
     }
 }
+*/

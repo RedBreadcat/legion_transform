@@ -1,9 +1,10 @@
-use crate::math::{Vector2, Matrix3};
-use shrinkwraprs::Shrinkwrap;
+use crate::math::{Matrix3, Vector2};
 
-#[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy)]
-#[shrinkwrap(mutable)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Translation2(pub Vector2<f32>);
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct LocalTranslation2(pub Translation2);
 
 impl Translation2 {
     #[inline(always)]
@@ -23,6 +24,39 @@ impl Translation2 {
             0.0, 1.0, self.0.y, 
             0.0, 0.0, 1.0
         )
+    }
+
+    pub fn transform(&mut self, transformation: &Matrix3<f32>) {
+        unsafe {
+            let x_new = transformation.get_unchecked((0, 0)) * self.0.x
+                + transformation.get_unchecked((0, 1)) * self.0.y
+                + transformation.get_unchecked((0, 2));
+            self.0.y = transformation.get_unchecked((1, 0)) * self.0.x
+                + transformation.get_unchecked((1, 1)) * self.0.y
+                + transformation.get_unchecked((1, 2));
+            self.0.x = x_new;
+        }
+    }
+
+    pub fn transform_to_copy(&self, transformation: &Matrix3<f32>) -> Translation2 {
+        unsafe {
+            let x = transformation.get_unchecked((0, 0)) * self.0.x
+                + transformation.get_unchecked((0, 1)) * self.0.y
+                + transformation.get_unchecked((0, 2));
+            let y = transformation.get_unchecked((1, 0)) * self.0.x
+                + transformation.get_unchecked((1, 1)) * self.0.y
+                + transformation.get_unchecked((1, 2));
+
+            Translation2::new(x, y)
+        }
+    }
+}
+
+
+impl LocalTranslation2 {
+    #[inline(always)]
+    pub fn identity() -> Self {
+        Self(Translation2::identity())
     }
 }
 

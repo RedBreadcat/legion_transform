@@ -7,6 +7,10 @@ use smallvec::SmallVec;
 pub struct Children(pub SmallVec<[Entity; 8]>);
 
 impl Children {
+    pub fn default() -> Self {
+        Self(SmallVec::default())
+    }
+
     pub fn with(entity: &[Entity]) -> Self {
         Self(SmallVec::from_slice(entity))
     }
